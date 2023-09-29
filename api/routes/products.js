@@ -165,15 +165,6 @@ router.get("/search", (request, response) => {
   });
 });
 
-// Filter product
-router.post("/filter", (request, response) => {
-  const { page = 1, limit = 10 } = req.query;
-  const colorIds = req.body.colorIds;
-
-  let query = "SELECT COUNT(*) AS total FROM product ";
-  let params = [];
-});
-
 // Insert Product
 router.post(
   "/insert",
@@ -203,85 +194,6 @@ router.post(
     });
   }
 );
-
-// Create product
-router.post("/create", uploadImage.single("image"), (request, response) => {
-  const name = request.body.name;
-  const price = request.body.price;
-  const quantity = request.body.quantity;
-  const supplier = request.body.supplier;
-  const category = request.body.category;
-  const colorIds = request.body.colorIds;
-  const sizeIds = request.body.sizeIds; // Corrected field name
-
-  const file = request.file;
-  var filePath = "";
-  if (file != null) {
-    filePath = file.path;
-  }
-
-  const query =
-    "INSERT INTO product(product_name, price, quantity, supplier, image, category) VALUES(?, ?, ?, ?, ?, ?)";
-
-  const args = [name, price, quantity, supplier, filePath, category];
-
-  database.query(query, args, (error, result) => {
-    if (error) {
-      response.status(500).json({ message: "Internal error server" });
-      throw error;
-    } else {
-      const productId = result.insertId;
-      const arrColorId = JSON.parse(colorIds);
-      console.log("arrColorId...", typeof arrColorId);
-      console.log("arrColorId...123", Array.isArray(arrColorId));
-      // Thêm màu vào sản phẩm
-      if (arrColorId && Array.isArray(arrColorId) && arrColorId.length > 0) {
-        const insertColorQuery =
-          "INSERT INTO product_color (product_id, color_id) VALUES (?, ?)";
-        const colorValues = arrColorId.map((colorId) => [productId, colorId]);
-        console.log("colorValues///", colorValues);
-        database.query(
-          insertColorQuery,
-          [colorValues],
-          (error, colorResult) => {
-            if (error) {
-              return response
-                .status(500)
-                .json({ message: "Internal error server" });
-              // throw error;
-            }
-          }
-        );
-      }
-
-      console.log("sizeIds...", sizeIds);
-      const arrSizeId = JSON.parse(sizeIds);
-      // Thêm thể loại vào sản phẩm
-      if (arrSizeId && Array.isArray(arrSizeId) && arrSizeId?.length > 0) {
-        const insertSizeQuery =
-          "INSERT INTO product_size (product_id, size_id) VALUES (?, ?)";
-        const sizeValues = arrSizeId?.map((sizeId) => [productId, sizeId]); // Corrected field name
-        console.log("sizeValues...", sizeValues);
-        database.query(
-          insertSizeQuery,
-          [sizeValues],
-          (error, categoryResult) => {
-            if (error) {
-              return response
-                .status(500)
-                .json({ message: "Internal error server" });
-              // throw error;
-            }
-          }
-        );
-      }
-    }
-
-    return response
-      .status(200)
-      .json({ data: result, message: "Product created successfully" });
-  });
-});
 
 // Delete Product
 router.delete("/:id", (request, response) => {
@@ -330,6 +242,496 @@ router.put("/update", uploadImage.single("image"), (request, response) => {
       response.status(200).send("Product Image is updated");
     } else {
       response.status(500).send("Invalid Update");
+    }
+  });
+});
+
+// Filter product
+router.post("/filter", (request, response) => {
+  const { page = 1, limit = 10 } = request.query;
+  const colorIds = request.body.colorIds;
+  const sizeIds = request.body.sizeIds;
+  const productName = request.body.productName;
+  const minPrice = request.body.minPrice;
+  const maxPrice = request.body.maxPrice;
+
+  let query = "SELECT COUNT(*) AS total FROM product ";
+  let params = [];
+
+  if (colorIds && colorIds.length > 0) {
+    query +=
+      "INNER JOIN product_color ON product.id = product_color.product_id ";
+    query += "WHERE product_color.color_id IN (?) ";
+    params.push(colorIds);
+  }
+
+  if (sizeIds && sizeIds.length > 0) {
+    if (colorIds && colorIds.length > 0) {
+      query += " AND ";
+    } else {
+      query += " WHERE ";
+    }
+    query +=
+      "EXISTS (SELECT 1 FROM product_size WHERE product.id = product_size.product_id AND product_size.size_id IN (?)) ";
+    params.push(sizeIds);
+  }
+
+  if (productName) {
+    if ((colorIds && colorIds.length > 0) || (sizeIds && sizeIds.length > 0)) {
+      query += " AND ";
+    } else {
+      query += " WHERE ";
+    }
+    query += "product.product_name LIKE ? ";
+    params.push(`%${productName}%`);
+  }
+
+  if (minPrice && maxPrice) {
+    if (
+      (colorIds && colorIds.length > 0) ||
+      (sizeIds && sizeIds.length > 0) ||
+      productName
+    ) {
+      query += " AND ";
+    } else {
+      query += " WHERE ";
+    }
+    query += "product.price BETWEEN ? AND ? ";
+    params.push(minPrice, maxPrice);
+  }
+
+  database.query(query, params, (error, results) => {
+    if (error) {
+      console.error("Lỗi truy vấn CSDL:", error);
+      response.status(500).json({ error: "Đã xảy ra lỗi khi truy vấn CSDL" });
+      return;
+    }
+
+    const total = results[0].total;
+    const totalPage = Math.ceil(total / limit);
+
+    const offset = (page - 1) * limit;
+    const limitParam = parseInt(limit);
+
+    let filterQuery = `
+      SELECT 
+        product.*,
+        (
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', color.id, 'color_name', color.color_name))
+          FROM product_color
+          JOIN color ON product_color.color_id = color.id
+          WHERE product_color.product_id = product.id
+        ) as colors,
+        (
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', size.id, 'size_name', size.size_name))
+          FROM product_size
+          JOIN size ON product_size.size_id = size.id
+          WHERE product_size.product_id = product.id
+        ) as sizes,
+        (
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', product_image.id, 'image', product_image.image))
+          FROM product_image 
+          WHERE product_image.product_id = product.id
+        ) as images
+      FROM product
+    `;
+
+    let filterParams = [];
+
+    if (colorIds && colorIds.length > 0) {
+      filterQuery +=
+        " WHERE EXISTS (SELECT 1 FROM product_color WHERE product_color.product_id = product.id AND product_color.color_id IN (?))";
+      filterParams.push(colorIds);
+    }
+
+    if (sizeIds && sizeIds.length > 0) {
+      if (colorIds && colorIds.length > 0) {
+        filterQuery += " AND ";
+      } else {
+        filterQuery += " WHERE ";
+      }
+      filterQuery +=
+        " EXISTS (SELECT 1 FROM product_size WHERE product_size.product_id = product.id AND product_size.size_id IN (?))";
+      filterParams.push(sizeIds);
+    }
+
+    if (productName) {
+      if (
+        (colorIds && colorIds.length > 0) ||
+        (sizeIds && sizeIds.length > 0)
+      ) {
+        filterQuery += " AND ";
+      } else {
+        filterQuery += " WHERE ";
+      }
+      filterQuery += "product.product_name LIKE ?";
+      filterParams.push(`%${productName}%`);
+    }
+
+    if (minPrice && maxPrice) {
+      if (
+        (colorIds && colorIds.length > 0) ||
+        (sizeIds && sizeIds.length > 0) ||
+        productName
+      ) {
+        filterQuery += " AND ";
+      } else {
+        filterQuery += " WHERE ";
+      }
+      filterQuery += "product.price BETWEEN ? AND ? ";
+      filterParams.push(minPrice, maxPrice);
+    }
+
+    filterQuery += " LIMIT ?, ?;";
+    filterParams.push(offset, limitParam);
+
+    database.query(filterQuery, filterParams, (error, products) => {
+      if (error) {
+        console.error("Lỗi truy vấn CSDL:", error);
+        response.status(500).json({ error: "Đã xảy ra lỗi khi truy vấn CSDL" });
+        return;
+      }
+
+      // Chuyển chuỗi JSON thành mảng objects
+      products.forEach((product) => {
+        product.colors = JSON.parse(product.colors);
+      });
+
+      // Chuyển chuỗi JSON thành mảng objects
+      products.forEach((product) => {
+        product.sizes = JSON.parse(product.sizes);
+      });
+
+      // Chuyển chuỗi JSON thành mảng objects
+      products.forEach((product) => {
+        product.images = JSON.parse(product.images);
+      });
+
+      response.json({
+        total,
+        totalPage,
+        page: parseInt(page),
+        limit: limitParam,
+        products,
+      });
+    });
+  });
+});
+
+// Create product
+router.post("/create", uploadImage.array("image", 5), (request, response) => {
+  const name = request.body.name;
+  const price = request.body.price;
+  const quantity = request.body.quantity;
+  const supplier = request.body.supplier;
+  const category = request.body.category;
+  const colorIds = request.body.colorIds;
+  const sizeIds = request.body.sizeIds; // Corrected field name
+
+  const files = request.files;
+  const filePaths = files.map((file) => file.path);
+
+  const query =
+    "INSERT INTO product(product_name, price, quantity, supplier, category) VALUES(?, ?, ?, ?, ?)";
+
+  const args = [name, price, quantity, supplier, category];
+
+  database.query(query, args, (error, result) => {
+    if (error) {
+      response.status(500).json({ message: "Internal error server" });
+      throw error;
+    } else {
+      const productId = result.insertId;
+      const arrColorId = JSON.parse(colorIds);
+      // Thêm màu vào sản phẩm
+      if (arrColorId && Array.isArray(arrColorId) && arrColorId.length > 0) {
+        arrColorId.map((colorId) => {
+          const colorValues = [productId, colorId];
+          const insertColorQuery =
+            "INSERT INTO product_color (product_id, color_id) VALUES (?, ?)";
+          database.query(
+            insertColorQuery,
+            colorValues,
+            (error, colorResult) => {
+              if (error) {
+                console.log("error...", error);
+                return response
+                  .status(500)
+                  .json({ message: "Internal error server" });
+                // throw error;
+              }
+            }
+          );
+        });
+      }
+
+      const arrSizeId = JSON.parse(sizeIds);
+      // Thêm thể loại vào sản phẩm
+      if (arrSizeId && Array.isArray(arrSizeId) && arrSizeId?.length > 0) {
+        arrSizeId?.map((sizeId) => {
+          const sizeValues = [productId, sizeId];
+          const insertSizeQuery =
+            "INSERT INTO product_size (product_id, size_id) VALUES (?, ?)";
+          database.query(
+            insertSizeQuery,
+            sizeValues,
+            (error, categoryResult) => {
+              if (error) {
+                return response
+                  .status(500)
+                  .json({ message: "Internal error server" });
+                // throw error;
+              }
+            }
+          );
+        });
+      }
+
+      filePaths.forEach((filePath) => {
+        const insertImageQuery =
+          "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
+        const imageValues = [productId, filePath];
+
+        database.query(insertImageQuery, imageValues, (error, imageResult) => {
+          if (error) {
+            return response
+              .status(500)
+              .json({ message: "Internal error server" });
+          }
+        });
+      });
+    }
+
+    return response
+      .status(200)
+      .json({ data: result, message: "Product created successfully" });
+  });
+});
+
+// api update product
+router.post(
+  "/updateProduct",
+  uploadImage.array("image", 5),
+  (request, response) => {
+    const id = request.body.id;
+    const name = request.body.name;
+    const price = request.body.price;
+    const quantity = request.body.quantity;
+    const supplier = request.body.supplier;
+    const category = request.body.category;
+    const colorIds = request.body.colorIds;
+    const sizeIds = request.body.sizeIds;
+
+    const files = request.files;
+    const newFilePaths = files ? files.map((file) => file.path) : [];
+    const existingFilePaths = request.body.images
+      ? JSON.parse(request.body.images)
+      : [];
+
+    const filePaths = [...existingFilePaths, ...newFilePaths];
+
+    const query =
+      "UPDATE product SET product_name = ? , price = ? , quantity = ? , supplier = ? , category = ? WHERE id = ? ";
+
+    const args = [name, price, quantity, supplier, category, id];
+
+    database.query(query, args, (error, result) => {
+      if (error) {
+        response.status(500).json({ message: "Internal error server" });
+        throw error;
+      }
+
+      const arrColorId = JSON.parse(colorIds);
+
+      const deleteColorsQuery =
+        "DELETE FROM product_color WHERE product_id = ?";
+      database.query(deleteColorsQuery, [id], (error, deleteColorResult) => {
+        if (error) {
+          response
+            .status(500)
+            .json({ message: "Internal error server (Colors)" });
+          throw error;
+        }
+
+        if (arrColorId && Array.isArray(arrColorId) && arrColorId.length > 0) {
+          arrColorId.forEach((colorId) => {
+            const colorValues = [id, colorId];
+            const insertColorQuery =
+              "INSERT INTO product_color (product_id, color_id) VALUES (?, ?)";
+            database.query(
+              insertColorQuery,
+              colorValues,
+              (error, colorResult) => {
+                if (error) {
+                  response
+                    .status(500)
+                    .json({ message: "Internal error server (Colors)" });
+                  throw error;
+                }
+              }
+            );
+          });
+        }
+
+        const arrSizeId = JSON.parse(sizeIds);
+
+        const deleteSizesQuery =
+          "DELETE FROM product_size WHERE product_id = ?";
+        database.query(deleteSizesQuery, [id], (error, deleteSizeResult) => {
+          if (error) {
+            response
+              .status(500)
+              .json({ message: "Internal error server (Sizes)" });
+            throw error;
+          }
+
+          if (arrSizeId && Array.isArray(arrSizeId) && arrSizeId.length > 0) {
+            arrSizeId.forEach((sizeId) => {
+              const sizeValues = [id, sizeId];
+              const insertSizeQuery =
+                "INSERT INTO product_size (product_id, size_id) VALUES (?, ?)";
+              database.query(
+                insertSizeQuery,
+                sizeValues,
+                (error, categoryResult) => {
+                  if (error) {
+                    response
+                      .status(500)
+                      .json({ message: "Internal error server (Sizes)" });
+                    throw error;
+                  }
+                }
+              );
+            });
+          }
+
+          if (filePaths.length > 0) {
+            const deleteImagesQuery =
+              "DELETE FROM product_image WHERE product_id = ? AND id = ?";
+            const insertImageQuery =
+              "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
+
+            // Xoá các ảnh cũ
+            existingFilePaths.forEach((oldImagePath) => {
+              if (!newFilePaths.includes(oldImagePath)) {
+                const imageIdToDelete = request.body.deletedImageIds.find(
+                  (id) => id.startsWith(oldImagePath)
+                ); // Lấy id của ảnh cần xoá
+
+                if (imageIdToDelete) {
+                  database.query(
+                    deleteImagesQuery,
+                    [id, imageIdToDelete],
+                    (error, deleteImageResult) => {
+                      if (error) {
+                        response
+                          .status(500)
+                          .json({ message: "Internal error server (Images)" });
+                        throw error;
+                      }
+                    }
+                  );
+                }
+              }
+            });
+
+            // Thêm ảnh mới
+            filePaths.forEach((filePath) => {
+              if (!existingFilePaths.includes(filePath)) {
+                const imageValues = [id, filePath];
+                database.query(
+                  insertImageQuery,
+                  imageValues,
+                  (error, imageResult) => {
+                    if (error) {
+                      response
+                        .status(500)
+                        .json({ message: "Internal error server (Images)" });
+                      throw error;
+                    }
+                  }
+                );
+              }
+            });
+          } else {
+            response.status(200).json({
+              data: result,
+              message: "Product updated successfully",
+            });
+          }
+        });
+      });
+    });
+  }
+);
+
+// APi get by id
+router.get("/getById/:id", (req, res) => {
+  const id = req.params.id;
+
+  const getProductQuery = `
+    SELECT 
+      product.*,
+      (
+        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', color.id, 'color_name', color.color_name))
+        FROM product_color
+        JOIN color ON product_color.color_id = color.id
+        WHERE product_color.product_id = ?
+      ) as colors,
+      (
+        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', size.id, 'size_name', size.size_name))
+        FROM product_size
+        JOIN size ON product_size.size_id = size.id
+        WHERE product_size.product_id = ?
+      ) as sizes,
+      (
+        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', product_image.id, 'image', product_image.image))
+        FROM product_image 
+        WHERE product_image.product_id = product.id
+      ) as images
+    FROM product
+    WHERE id = ?
+  `;
+
+  database.query(getProductQuery, [id, id, id, id], (error, results) => {
+    if (error) {
+      console.error("Lỗi truy vấn CSDL:", error);
+      res.status(500).json({ error: "Đã xảy ra lỗi khi truy vấn CSDL" });
+      return;
+    }
+
+    if (results.length === 0) {
+      res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+      return;
+    }
+
+    const product = results[0];
+    product.colors = JSON.parse(product.colors);
+    product.sizes = JSON.parse(product.sizes);
+    product.images = JSON.parse(product.images);
+
+    res.status(200).json({ data: product, message: "Successfully" });
+  });
+});
+
+// delete product with id
+router.post("/deleteProduct", async (request, response) => {
+  const id = request.body.id;
+
+  await database.query("DELETE FROM product_color WHERE product_id = ?", [id]);
+  await database.query("DELETE FROM product_size WHERE product_id = ?", [id]);
+  await database.query("DELETE FROM product_image WHERE product_id = ?", [id]);
+
+  const query = "DELETE FROM product WHERE id = ?";
+
+  const args = [id];
+
+  database.query(query, args, (error, result) => {
+    if (error) {
+      response.status(500).json({ message: "Internal error server" });
+      throw error;
+    } else {
+      response.status(200).json({ data: result, message: "Product deleted" });
     }
   });
 });
