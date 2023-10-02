@@ -91,7 +91,25 @@ router.get("/", (request, response) => {
     product.price,
     product.quantity,
     product.supplier,
-    product.image,
+    (
+      SELECT product_image.image
+      FROM product_image 
+      WHERE product_image.product_id = product.id
+      LIMIT 1
+    ) as image,
+
+    (
+      SELECT JSON_ARRAYAGG(color.color_code)
+      FROM product_color 
+      INNER JOIN color ON color.id = product_color.color_id
+      WHERE product_color.product_id = product.id
+  ) as color,
+  (
+    SELECT JSON_ARRAYAGG(size.size_name)
+    FROM product_size 
+    INNER JOIN size ON size.id = product_size.size_id
+    WHERE product_size.product_id = product.id
+  ) as size,
     product.category,
     (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM favorite WHERE favorite.user_id = ? AND favorite.product_id = product.id) as isFavourite,
     (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM cart WHERE cart.user_id = ? AND cart.product_id = product.id) as isInCart
@@ -115,7 +133,7 @@ router.get("/search", (request, response) => {
   const keyword = request.query.q?.toLowerCase();
   var page = request.query.page;
   var page_size = request.query.page_size;
-
+  console.log();
   if (page == null || page < 1) {
     page = 1;
   }
@@ -147,7 +165,24 @@ router.get("/search", (request, response) => {
     product.price,
     product.quantity,
     product.supplier,
-    product.image,
+    (
+      SELECT product_image.image
+      FROM product_image 
+      WHERE product_image.product_id = product.id
+      LIMIT 1
+    ) as image,
+    (
+      SELECT JSON_ARRAYAGG(color.color_code)
+      FROM product_color 
+      INNER JOIN color ON color.id = product_color.color_id
+      WHERE product_color.product_id = product.id
+    ) as color,
+    (
+      SELECT JSON_ARRAYAGG(size.size_name)
+      FROM product_size 
+      INNER JOIN size ON size.id = product_size.size_id
+      WHERE product_size.product_id = product.id
+    ) as size,
     product.category,
     (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM favorite WHERE favorite.user_id = ? AND favorite.product_id = product.id) as isFavourite,
     (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM cart WHERE cart.user_id = ? AND cart.product_id = product.id) as isInCart

@@ -30,10 +30,17 @@ router.get("/", (request, response) => {
     const query = `SELECT product.id,
                  product.product_name, 
                  product.price, 
-                 product.image, 
+                 (
+                    SELECT product_image.image
+                    FROM product_image 
+                    WHERE product_image.product_id = product.id
+                    LIMIT 1
+                ) as image,
                  product.category, 
                  product.quantity, 
                  product.supplier, 
+                 cart.color,
+                 cart.size,
                  (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM favorite WHERE favorite.user_id = ? AND favorite.product_id = product.id) as isFavourite
                  FROM Cart JOIN product JOIN User 
                  ON cart.product_id = product.id AND cart.user_id = user.id 
@@ -53,10 +60,12 @@ router.get("/", (request, response) => {
 router.post("/add", (request, response) => {
     const userId = request.body.userId
     const productId = request.body.productId
+    const productColor = request.body.productColor
+    const productSize = request.body.productSize
   
-    const query = "INSERT INTO cart(user_Id, product_Id) VALUES(?, ?)"
+    const query = "INSERT INTO cart(user_Id, product_Id, size, color) VALUES(?, ?, ?, ?)"
    
-    const args = [userId, productId]
+    const args = [userId, productId, productSize, productColor]
 
     database.query(query, args, (error, result) => {
         if (error) {
