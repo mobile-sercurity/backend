@@ -25,6 +25,7 @@ const uploadImage = multer({
 // import file
 const database = require("../../config");
 const checkAuth = require("../../middleware/check_auth");
+const { cloudinary } = require("../../config/cloundinary");
 
 // Get All products
 router.get("/all", (request, response) => {
@@ -523,16 +524,30 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
       }
 
       filePaths.forEach((filePath) => {
-        const insertImageQuery =
-          "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
-        const imageValues = [productId, filePath];
-
-        database.query(insertImageQuery, imageValues, (error, imageResult) => {
+        cloudinary.uploader.upload(filePath, (error, result) => {
           if (error) {
             return response
               .status(500)
-              .json({ message: "Internal error server" });
+              .json({ message: "Error uploading image" });
           }
+
+          const imageUrl = result.secure_url;
+
+          const insertImageQuery =
+            "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
+          const imageValues = [productId, imageUrl];
+
+          database.query(
+            insertImageQuery,
+            imageValues,
+            (error, imageResult) => {
+              if (error) {
+                return response
+                  .status(500)
+                  .json({ message: "Internal error server" });
+              }
+            }
+          );
         });
       });
     }
@@ -666,19 +681,28 @@ router.post(
           // Thêm ảnh mới
           if (newFilePaths.length > 0) {
             filePaths.forEach((filePath) => {
-              const imageValues = [id, filePath];
-              database.query(
-                insertImageQuery,
-                imageValues,
-                (error, imageResult) => {
-                  if (error) {
-                    response
-                      .status(500)
-                      .json({ message: "Internal error server (Images)" });
-                    throw error;
-                  }
+              cloudinary.uploader.upload(filePath, (error, result) => {
+                if (error) {
+                  return response
+                    .status(500)
+                    .json({ message: "Error uploading image" });
                 }
-              );
+
+                const imageUrl = result.secure_url;
+                const imageValues = [id, imageUrl];
+                database.query(
+                  insertImageQuery,
+                  imageValues,
+                  (error, imageResult) => {
+                    if (error) {
+                      response
+                        .status(500)
+                        .json({ message: "Internal error server (Images)" });
+                      throw error;
+                    }
+                  }
+                );
+              });
             });
           }
 
