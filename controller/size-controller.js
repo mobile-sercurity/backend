@@ -1,7 +1,6 @@
 const database = require("../config");
 
 const createSize = async (req, res) => {
-  const id = req.body.id;
   const size = req.body.size;
 
   const query = "INSERT INTO size values (?,?)";
@@ -48,7 +47,7 @@ const filterSize = async (req, res) => {
     const offset = (page - 1) * limit;
     const limitParam = parseInt(limit);
 
-    let filterQuery = "SELECT * FROM size";
+    let filterQuery = "SELECT id, size_name as sizeName FROM size";
     let filterParams = [];
 
     if (size) {

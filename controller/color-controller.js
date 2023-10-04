@@ -47,7 +47,8 @@ const filterColor = async (req, res) => {
     const offset = (page - 1) * limit;
     const limitParam = parseInt(limit);
 
-    let filterQuery = "SELECT * FROM color";
+    let filterQuery =
+      "SELECT id, color_name as colorName, color_code as colorCode FROM color";
     let filterParams = [];
 
     if (color) {

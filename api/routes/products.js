@@ -317,13 +317,13 @@ router.post("/filter", (request, response) => {
       SELECT 
         product.*,
         (
-          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', color.id, 'color_name', color.color_name))
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', color.id, 'colorName', color.color_name))
           FROM product_color
           JOIN color ON product_color.color_id = color.id
           WHERE product_color.product_id = product.id
         ) as colors,
         (
-          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', size.id, 'size_name', size.size_name))
+          SELECT JSON_ARRAYAGG(JSON_OBJECT('id', size.id, 'sizeName', size.size_name))
           FROM product_size
           JOIN size ON product_size.size_id = size.id
           WHERE product_size.product_id = product.id
@@ -426,9 +426,10 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
   const supplier = request.body.supplier;
   const category = request.body.category;
   const colorIds = request.body.colorIds;
-  const sizeIds = request.body.sizeIds; // Corrected field name
+  const sizeIds = request.body.sizeIds;
 
   const files = request.files;
+
   const filePaths = files.map((file) => file.path);
 
   const query =
@@ -442,11 +443,14 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
       throw error;
     } else {
       const productId = result.insertId;
-      const arrColorId = JSON.parse(colorIds);
+
+      const arrColorId = colorIds?.length > 0 ? colorIds : JSON.parse(colorIds);
+
       // Thêm màu vào sản phẩm
       if (arrColorId && Array.isArray(arrColorId) && arrColorId.length > 0) {
         arrColorId.map((colorId) => {
-          const colorValues = [productId, colorId];
+          const colorValues = [productId, Number(colorId)];
+
           const insertColorQuery =
             "INSERT INTO product_color (product_id, color_id) VALUES (?, ?)";
           database.query(
@@ -454,22 +458,20 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
             colorValues,
             (error, colorResult) => {
               if (error) {
-                console.log("error...", error);
-                return response
-                  .status(500)
-                  .json({ message: "Internal error server" });
-                // throw error;
+                console.log("error...458", error);
+                response.status(500).json({ message: "Internal error server" });
+                throw error;
               }
             }
           );
         });
       }
 
-      const arrSizeId = JSON.parse(sizeIds);
+      const arrSizeId = sizeIds?.length > 0 ? sizeIds : JSON.parse(sizeIds);
       // Thêm thể loại vào sản phẩm
       if (arrSizeId && Array.isArray(arrSizeId) && arrSizeId?.length > 0) {
         arrSizeId?.map((sizeId) => {
-          const sizeValues = [productId, sizeId];
+          const sizeValues = [productId, Number(sizeId)];
           const insertSizeQuery =
             "INSERT INTO product_size (product_id, size_id) VALUES (?, ?)";
           database.query(
@@ -477,10 +479,8 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
             sizeValues,
             (error, categoryResult) => {
               if (error) {
-                return response
-                  .status(500)
-                  .json({ message: "Internal error server" });
-                // throw error;
+                response.status(500).json({ message: "Internal error server" });
+                throw error;
               }
             }
           );
@@ -521,14 +521,12 @@ router.post(
     const category = request.body.category;
     const colorIds = request.body.colorIds;
     const sizeIds = request.body.sizeIds;
+    const imageDel = request.body.imageDel;
 
     const files = request.files;
     const newFilePaths = files ? files.map((file) => file.path) : [];
-    const existingFilePaths = request.body.images
-      ? JSON.parse(request.body.images)
-      : [];
 
-    const filePaths = [...existingFilePaths, ...newFilePaths];
+    const filePaths = [...newFilePaths];
 
     const query =
       "UPDATE product SET product_name = ? , price = ? , quantity = ? , supplier = ? , category = ? WHERE id = ? ";
@@ -541,7 +539,7 @@ router.post(
         throw error;
       }
 
-      const arrColorId = JSON.parse(colorIds);
+      const arrColorId = colorIds ? JSON.parse(colorIds) : [];
 
       const deleteColorsQuery =
         "DELETE FROM product_color WHERE product_id = ?";
@@ -555,7 +553,7 @@ router.post(
 
         if (arrColorId && Array.isArray(arrColorId) && arrColorId.length > 0) {
           arrColorId.forEach((colorId) => {
-            const colorValues = [id, colorId];
+            const colorValues = [id, Number(colorId)];
             const insertColorQuery =
               "INSERT INTO product_color (product_id, color_id) VALUES (?, ?)";
             database.query(
@@ -573,7 +571,7 @@ router.post(
           });
         }
 
-        const arrSizeId = JSON.parse(sizeIds);
+        const arrSizeId = sizeIds ? JSON.parse(sizeIds) : [];
 
         const deleteSizesQuery =
           "DELETE FROM product_size WHERE product_id = ?";
@@ -587,7 +585,7 @@ router.post(
 
           if (arrSizeId && Array.isArray(arrSizeId) && arrSizeId.length > 0) {
             arrSizeId.forEach((sizeId) => {
-              const sizeValues = [id, sizeId];
+              const sizeValues = [id, Number(sizeId)];
               const insertSizeQuery =
                 "INSERT INTO product_size (product_id, size_id) VALUES (?, ?)";
               database.query(
@@ -605,60 +603,54 @@ router.post(
             });
           }
 
-          if (filePaths.length > 0) {
-            const deleteImagesQuery =
-              "DELETE FROM product_image WHERE product_id = ? AND id = ?";
-            const insertImageQuery =
-              "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
+          const deleteImagesQuery =
+            "DELETE FROM product_image WHERE product_id = ? AND id = ?";
+          const insertImageQuery =
+            "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
 
-            // Xoá các ảnh cũ
-            existingFilePaths.forEach((oldImagePath) => {
-              if (!newFilePaths.includes(oldImagePath)) {
-                const imageIdToDelete = request.body.deletedImageIds.find(
-                  (id) => id.startsWith(oldImagePath)
-                ); // Lấy id của ảnh cần xoá
+          // Xoá các ảnh
+          const arrImageDel = imageDel ? JSON.parse(imageDel) : [];
 
-                if (imageIdToDelete) {
-                  database.query(
-                    deleteImagesQuery,
-                    [id, imageIdToDelete],
-                    (error, deleteImageResult) => {
-                      if (error) {
-                        response
-                          .status(500)
-                          .json({ message: "Internal error server (Images)" });
-                        throw error;
-                      }
-                    }
-                  );
-                }
-              }
-            });
-
-            // Thêm ảnh mới
-            filePaths.forEach((filePath) => {
-              if (!existingFilePaths.includes(filePath)) {
-                const imageValues = [id, filePath];
-                database.query(
-                  insertImageQuery,
-                  imageValues,
-                  (error, imageResult) => {
-                    if (error) {
-                      response
-                        .status(500)
-                        .json({ message: "Internal error server (Images)" });
-                      throw error;
-                    }
+          if (arrImageDel.length > 0) {
+            arrImageDel?.forEach((imageId) => {
+              database.query(
+                deleteImagesQuery,
+                [id, Number(imageId)],
+                (error, deleteImageResult) => {
+                  if (error) {
+                    response
+                      .status(500)
+                      .json({ message: "Internal error server (Images)" });
+                    throw error;
                   }
-                );
-              }
-            });
-          } else {
-            response.status(200).json({
-              data: result,
-              message: "Product updated successfully",
+                }
+              );
             });
           }
+
+          // Thêm ảnh mới
+          if (newFilePaths.length > 0) {
+            filePaths.forEach((filePath) => {
+              const imageValues = [id, filePath];
+              database.query(
+                insertImageQuery,
+                imageValues,
+                (error, imageResult) => {
+                  if (error) {
+                    response
+                      .status(500)
+                      .json({ message: "Internal error server (Images)" });
+                    throw error;
+                  }
+                }
+              );
+            });
+          }
+
+          response.status(200).json({
+            data: result,
+            message: "Product updated successfully",
+          });
         });
       });
     });
@@ -673,13 +665,13 @@ router.get("/getById/:id", (req, res) => {
     SELECT 
       product.*,
       (
-        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', color.id, 'color_name', color.color_name))
+        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', color.id, 'colorName', color.color_name))
         FROM product_color
         JOIN color ON product_color.color_id = color.id
         WHERE product_color.product_id = ?
       ) as colors,
       (
-        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', size.id, 'size_name', size.size_name))
+        SELECT JSON_ARRAYAGG(JSON_OBJECT('id', size.id, 'sizeName', size.size_name))
         FROM product_size
         JOIN size ON product_size.size_id = size.id
         WHERE product_size.product_id = ?
