@@ -32,18 +32,35 @@ router.get("/", (request, response) => {
     ];
     
     const query = `SELECT product.id,
-                          product.product_name,
-                          product.price,
-                          product.image,
-                          product.category,
-                          product.quantity,
-                          product.supplier,
-                          (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM favorite WHERE favorite.user_id = ? AND favorite.product_id = product.id) as isFavourite,
-                          (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM cart WHERE cart.user_id = ? AND cart.product_id = product.id) as isInCart
-                          FROM History JOIN Product JOIN User 
-                          ON history.product_id = product.id AND history.user_id = user.id 
-                          WHERE user_id = ? 
-                          LIMIT ? OFFSET ?`;
+                    product.product_name,
+                    product.price,
+                    (
+                        SELECT product_image.image
+                        FROM product_image 
+                        WHERE product_image.product_id = product.id
+                        LIMIT 1
+                    ) as image,
+                    (
+                        SELECT JSON_ARRAYAGG(color.color_code)
+                        FROM product_color 
+                        INNER JOIN color ON color.id = product_color.color_id
+                        WHERE product_color.product_id = product.id
+                    ) as color,
+                    (
+                        SELECT JSON_ARRAYAGG(size.size_name)
+                        FROM product_size 
+                        INNER JOIN size ON size.id = product_size.size_id
+                        WHERE product_size.product_id = product.id
+                    ) as size,
+                    product.category,
+                    product.quantity,
+                    product.supplier,
+                    (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM favorite WHERE favorite.user_id = ? AND favorite.product_id = product.id) as isFavourite,
+                    (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM cart WHERE cart.user_id = ? AND cart.product_id = product.id) as isInCart
+                    FROM History JOIN Product JOIN User 
+                    ON history.product_id = product.id AND history.user_id = user.id 
+                    WHERE user_id = ? 
+                    LIMIT ? OFFSET ?`;
 
     database.query(query, args, (error, result) => {
         if(error) throw error;

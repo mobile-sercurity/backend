@@ -29,7 +29,13 @@ router.get("/", (request, response) => {
 
     const query = `SELECT product.id,
                           product.product_name, 
-                          product.price, product.image, 
+                          product.price, 
+                          (
+                            SELECT product_image.image
+                            FROM product_image 
+                            WHERE product_image.product_id = product.id
+                            LIMIT 1
+                            ) as image,
                           product.category, 
                           product.quantity, 
                           product.supplier,
