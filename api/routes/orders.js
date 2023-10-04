@@ -9,6 +9,7 @@ const util2 = require("../../utils/encrypt");
 const {
   filterOrder,
   updateOrder,
+  getOrderById,
 } = require("../../controller/order-controller");
 
 // Order a product
@@ -148,8 +149,9 @@ router.get("/get", (request, response) => {
   });
 });
 
-// filter order
+// order
 router.post("/filter", filterOrder);
 router.post("/update", updateOrder);
+router.get("/getById/:id", getOrderById);
 
 module.exports = router;

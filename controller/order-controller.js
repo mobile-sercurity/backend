@@ -95,4 +95,44 @@ const updateOrder = async (req, res) => {
   });
 };
 
-module.exports = { filterOrder, updateOrder };
+// get by id
+const getOrderById = async (req, res) => {
+  const id = req.params.id;
+
+  let query = `
+    SELECT od.*, JSON_OBJECT('userId', user.id, 'userName', user.name, 'email', user.email) as user
+    FROM ordering od
+    LEFT JOIN user ON user.id = od.user_id
+    WHERE od.ordering_id = ?
+    `;
+  let params = [id];
+
+  database.query(query, params, (error, result) => {
+    if (error) {
+      console.error("Lỗi truy vấn CSDL:", error);
+      response.status(500).json({ error: "Đã xảy ra lỗi khi truy vấn CSDL" });
+      return;
+    }
+
+    if (result.length === 0) {
+      res.status(404).json({
+        error: "Không tìm thấy đơn hàng",
+      });
+      return;
+    }
+
+    const userObject = JSON.parse(result[0].user);
+
+    const finalResult = {
+      ...result[0],
+      user: userObject,
+    };
+
+    return res.status(200).json({
+      data: finalResult,
+      message: "Successfully",
+    });
+  });
+};
+
+module.exports = { filterOrder, updateOrder, getOrderById };
