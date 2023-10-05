@@ -1,7 +1,6 @@
 const database = require("../config");
 
 const createSize = async (req, res) => {
-  const id = req.body.id;
   const size = req.body.size;
 
   const query = "INSERT INTO size values (?,?)";
@@ -48,7 +47,7 @@ const filterSize = async (req, res) => {
     const offset = (page - 1) * limit;
     const limitParam = parseInt(limit);
 
-    let filterQuery = "SELECT * FROM size";
+    let filterQuery = "SELECT id, size_name as sizeName FROM size";
     let filterParams = [];
 
     if (size) {
@@ -82,7 +81,7 @@ const filterSize = async (req, res) => {
 const deleteSize = async (req, res) => {
   const id = req.params.id;
 
-  const query = "DELETE FROM size WHERE size_id = ?";
+  const query = "DELETE FROM size WHERE id = ?";
 
   const args = [id];
 
@@ -100,7 +99,7 @@ const updateSize = async (req, res) => {
   const id = req.body.id;
   const size = req.body.size;
 
-  const query = "UPDATE size SET size_name = ? WHERE size_id = ?";
+  const query = "UPDATE size SET size_name = ? WHERE id = ?";
 
   const args = [size, id];
 
@@ -118,7 +117,7 @@ const updateSize = async (req, res) => {
 const getSizeById = async (req, res) => {
   const id = req.params.id;
 
-  const query = "SELECT * FROM size WHERE size_id = ?";
+  const query = "SELECT * FROM size WHERE id = ?";
 
   const args = [id];
 

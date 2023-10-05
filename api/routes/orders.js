@@ -1,21 +1,26 @@
-const express = require('express')
-const router = express.Router()
+const express = require("express");
+const router = express.Router();
 
 // import file
-const database = require("../../config")
+const database = require("../../config");
 
-const util = require('../../utils/mail');
-const util2 = require('../../utils/encrypt');
+const util = require("../../utils/mail");
+const util2 = require("../../utils/encrypt");
+const {
+  filterOrder,
+  updateOrder,
+  getOrderById,
+} = require("../../controller/order-controller");
 
 // Order a product
 router.post("/add", (request, response) => {
-    var status = request.body.status
-    const name_on_card = request.body.name_on_card
-    var card_number = request.body.card_number
-    const expiration_date = request.body.expiration_date
-    const userId = request.body.userId
-    const productId = request.body.productId
-    var order_number;
+  var status = request.body.status;
+  const name_on_card = request.body.name_on_card;
+  var card_number = request.body.card_number;
+  const expiration_date = request.body.expiration_date;
+  const userId = request.body.userId;
+  const productId = request.body.productId;
+  var order_number;
 
     card_number = util2.encrypt(card_number)
      
@@ -58,70 +63,64 @@ router.post("/add", (request, response) => {
     });
 });
 
-
 router.get("/", (request, response) => {
-    const productId = request.body.id
+  const productId = request.body.id;
 
-    var order_number;
+  var order_number;
 
-    const queryCategory = 'SELECT category FROM product WHERE id = ?'
-    database.query(queryCategory,productId, (error, result) => {
-        if(error) throw error;
+  const queryCategory = "SELECT category FROM product WHERE id = ?";
+  database.query(queryCategory, productId, (error, result) => {
+    if (error) throw error;
 
-        result = result[0]["category"]
+    result = result[0]["category"];
 
-        console.log(result)
-       
-        if(result === "mobile"){
-            console.log('hello')
-            order_number = 55 + getRandomInt(100000, 999999)
-        }else if(result == "laptop"){
-            order_number = 66 + getRandomInt(100000, 999999)
-        }else if(result == "baby"){
-            order_number = 77 + getRandomInt(100000, 999999)
-        }else if(result == "toy"){
-            order_number = 88 + getRandomInt(100000, 999999)
-        }
+    console.log(result);
 
-        response.status(200).json({
-            "category" : result
-        })
-    });
-
-    function getRandomInt(min, max) {
-        min = Math.ceil(min);
-        max = Math.floor(max);
-        return Math.floor(Math.random() * (max - min)) + min; 
+    if (result === "mobile") {
+      console.log("hello");
+      order_number = 55 + getRandomInt(100000, 999999);
+    } else if (result == "laptop") {
+      order_number = 66 + getRandomInt(100000, 999999);
+    } else if (result == "baby") {
+      order_number = 77 + getRandomInt(100000, 999999);
+    } else if (result == "toy") {
+      order_number = 88 + getRandomInt(100000, 999999);
     }
-});
 
+    response.status(200).json({
+      category: result,
+    });
+  });
+
+  function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+});
 
 // Get Orders
 router.get("/get", (request, response) => {
-    var userId = request.query.userId;
-    var page = request.query.page;
-    var page_size = request.query.page_size;
+  var userId = request.query.userId;
+  var page = request.query.page;
+  var page_size = request.query.page_size;
 
-    if(page == null || page < 1){
-        page = 1;
-    }
- 
-    if(page_size == null){
-        page_size = 20;
-    }
+  if (page == null || page < 1) {
+    page = 1;
+  }
 
-    // OFFSET starts from zero
-    const offset = page - 1;
-    // OFFSET * LIMIT
-    page = offset * page_size;
+  if (page_size == null) {
+    page_size = 20;
+  }
 
-    const args = [
-        userId,
-        parseInt(page_size),
-        parseInt(page)
-    ];
+  // OFFSET starts from zero
+  const offset = page - 1;
+  // OFFSET * LIMIT
+  page = offset * page_size;
 
-    const query = `SELECT DISTINCT Ordering.order_number,
+  const args = [userId, parseInt(page_size), parseInt(page)];
+
+  const query = `SELECT DISTINCT Ordering.order_number,
                           DATE_FORMAT(Ordering.order_date, '%d/%m/%Y') As order_date, 
                           Ordering.status,Product.product_name,
                           Product.price,
@@ -137,15 +136,19 @@ router.get("/get", (request, response) => {
                           GROUP BY cart.id
                           LIMIT ? OFFSET ?`
 
-    database.query(query, args, (error, orders) => {
-        if(error) throw error;
-        response.status(200).json({
-            "page": offset + 1,
-            "error" : false,
-            "orders" : orders
-        })
-       
-    })
+  database.query(query, args, (error, orders) => {
+    if (error) throw error;
+    response.status(200).json({
+      page: offset + 1,
+      error: false,
+      orders: orders,
+    });
+  });
 });
 
-module.exports = router
+// order
+router.post("/filter", filterOrder);
+router.post("/update", updateOrder);
+router.get("/getById/:id", getOrderById);
+
+module.exports = router;
