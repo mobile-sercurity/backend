@@ -480,7 +480,9 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
     } else {
       const productId = result.insertId;
 
-      const arrColorId = colorIds?.length > 0 ? colorIds : JSON.parse(colorIds);
+      const arrColorId = Array.isArray(colorIds)
+        ? colorIds
+        : JSON.parse(colorIds);
 
       // Thêm màu vào sản phẩm
       if (arrColorId && Array.isArray(arrColorId) && arrColorId.length > 0) {
@@ -503,7 +505,7 @@ router.post("/create", uploadImage.array("image", 5), (request, response) => {
         });
       }
 
-      const arrSizeId = sizeIds?.length > 0 ? sizeIds : JSON.parse(sizeIds);
+      const arrSizeId = Array.isArray(sizeIds) ? sizeIds : JSON.parse(sizeIds);
       // Thêm thể loại vào sản phẩm
       if (arrSizeId && Array.isArray(arrSizeId) && arrSizeId?.length > 0) {
         arrSizeId?.map((sizeId) => {
@@ -571,7 +573,7 @@ router.post(
     const category = request.body.category;
     const colorIds = request.body.colorIds;
     const sizeIds = request.body.sizeIds;
-    const imageDel = request.body.imageDel;
+    const imageDel = request.body.imageDel || [];
 
     const files = request.files;
     const newFilePaths = files ? files.map((file) => file.path) : [];
@@ -589,7 +591,9 @@ router.post(
         throw error;
       }
 
-      const arrColorId = colorIds ? JSON.parse(colorIds) : [];
+      const arrColorId = Array.isArray(colorIds)
+        ? colorIds
+        : JSON.parse(colorIds);
 
       const deleteColorsQuery =
         "DELETE FROM product_color WHERE product_id = ?";
@@ -621,7 +625,8 @@ router.post(
           });
         }
 
-        const arrSizeId = sizeIds ? JSON.parse(sizeIds) : [];
+        const arrSizeId =
+          Array.isArray(sizeIds) > 0 ? sizeIds : JSON.parse(sizeIds);
 
         const deleteSizesQuery =
           "DELETE FROM product_size WHERE product_id = ?";
@@ -659,8 +664,7 @@ router.post(
             "INSERT INTO product_image (product_id, image) VALUES (?, ?)";
 
           // Xoá các ảnh
-          const arrImageDel = imageDel ? JSON.parse(imageDel) : [];
-
+          const arrImageDel = Array.isArray(imageDel) ? imageDel : [imageDel];
           if (arrImageDel.length > 0) {
             arrImageDel?.forEach((imageId) => {
               database.query(
