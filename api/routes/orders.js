@@ -19,43 +19,43 @@ router.post("/add", (request, response) => {
 
     card_number = util2.encrypt(card_number)
      
-    const queryCategory = 'SELECT category FROM product WHERE id = ?'
-    database.query(queryCategory,productId, (error, result) => {
-        if(error) throw error;
+    // const queryCategory = 'SELECT category FROM product WHERE id = ?'
+    // database.query(queryCategory,productId, (error, result) => {
+    //     if(error) throw error;
 
-        result = result[0]["category"]
+    //     // result = result[0]["category"]
        
-        if(result == "mobile"){
-            order_number = '55' + util.getRandomInt(100000, 999999)
-        }else if(result == "laptop"){
-            order_number = '66' + util.getRandomInt(100000, 999999)
-        }else if(result == "baby"){
-            order_number = '77' + util.getRandomInt(100000, 999999)
-        }else if(result == "toy"){
-            order_number = '88' + util.getRandomInt(100000, 999999)
-        }
-
-        if(typeof status == 'undefined' && status == null){
-            status = "shipped";
-        }
-
-        const query = "INSERT INTO Ordering(order_number, order_date ,status,name_on_card, card_number,expiration_date,user_id, product_id) VALUES(?,NOW(),?,?,?,?,?,?)"
-        const args = [order_number,status, name_on_card, card_number, expiration_date, userId, productId]
-
-        database.query(query, args, (error, result) => {
-            if (error) {
-                if (error.code === 'ER_DUP_ENTRY') {
-                    response.status(500).send("Deplicate Entry")
-                } else {
-                    throw error;
-                }
-            } else {
-                response.status(200).send("You ordered a product")
-            }
-        });
-
+    //     // if(result == "sneaker"){
+    //     //     order_number = '55' + util.getRandomInt(100000, 999999)
+    //     // }else if(result == "oxford"){
+    //     //     order_number = '66' + util.getRandomInt(100000, 999999)
+    //     // }else if(result == "baby"){
+    //     //     order_number = '77' + util.getRandomInt(100000, 999999)
+    //     // }else if(result == "toy"){
+    //     // }
         
-    })
+        
+    // })
+    order_number = '88' + util.getRandomInt(100000, 999999)
+    
+    if(typeof status == 'undefined' && status == null){
+        status = "shipped";
+    }
+
+    const query = "INSERT INTO Ordering(order_number, order_date ,status,name_on_card, card_number,expiration_date,user_id, cart_id) VALUES(?,NOW(),?,?,?,?,?,?)"
+    const args = [order_number,status, name_on_card, card_number, expiration_date, userId, productId]
+
+    database.query(query, args, (error, result) => {
+        if (error) {
+            if (error.code === 'ER_DUP_ENTRY') {
+                response.status(500).send("Deplicate Entry")
+            } else {
+                throw error;
+            }
+        } else {
+            response.status(200).send("You ordered a product")
+        }
+    });
 });
 
 
@@ -128,9 +128,13 @@ router.get("/get", (request, response) => {
                           Product.id,
                           User.name,
                           Shipping.address
-                          FROM Ordering JOIN Product JOIN User JOIN Shipping 
-                          ON Ordering.product_id = product.id AND Ordering.user_id = user.id AND Ordering.product_id = Shipping.product_id
+                          FROM Ordering 
+                          INNER JOIN cart ON cart.id = Ordering.cart_id 
+                          JOIN Product 
+                          JOIN User 
+                          INNER JOIN Shipping ON Ordering.cart_id  = Shipping.cart_id
                           WHERE Ordering.user_id = ? 
+                          GROUP BY cart.id
                           LIMIT ? OFFSET ?`
 
     database.query(query, args, (error, orders) => {

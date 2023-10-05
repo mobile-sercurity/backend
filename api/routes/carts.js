@@ -27,7 +27,9 @@ router.get("/", (request, response) => {
         parseInt(page)
     ];
 
-    const query = `SELECT product.id,
+    const query = `SELECT 
+                 cart.id as cartID,
+                 product.id,
                  product.product_name, 
                  product.price, 
                  (
@@ -39,12 +41,25 @@ router.get("/", (request, response) => {
                  product.category, 
                  product.quantity, 
                  product.supplier, 
-                 cart.color,
-                 cart.size,
+
+                 (
+                    SELECT JSON_ARRAYAGG(color.color_code)
+                    FROM product_color 
+                    INNER JOIN color ON color.id = product_color.color_id
+                    WHERE product_color.product_id = product.id
+                ) as color,
+                (
+                    SELECT JSON_ARRAYAGG(size.size_name)
+                    FROM product_size 
+                    INNER JOIN size ON size.id = product_size.size_id
+                    WHERE product_size.product_id = product.id
+                ) as size,
+                 cart.color as cart_color,
+                 cart.size as cart_size,
                  (SELECT IF(COUNT(*) >= 1, TRUE, FALSE) FROM favorite WHERE favorite.user_id = ? AND favorite.product_id = product.id) as isFavourite
                  FROM Cart JOIN product JOIN User 
                  ON cart.product_id = product.id AND cart.user_id = user.id 
-                 WHERE user_id = ? 
+                 WHERE cart.is_order != 1 AND user_id = ? 
                  LIMIT ? OFFSET ?`
 
     database.query(query, args, (error, result) => {
@@ -84,7 +99,7 @@ router.post("/add", (request, response) => {
 router.delete("/remove", (request, response) => {
     const userId = request.query.userId;
     const productId = request.query.productId;
-    const query = "DELETE FROM cart WHERE user_id = ? and product_id = ?"
+    const query = "DELETE FROM cart WHERE user_id = ? and id = ?"
     const args = [userId, productId]
 
     database.query(query, args, (error, result) => {
