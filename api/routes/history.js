@@ -41,6 +41,11 @@ router.get("/", (request, response) => {
                         LIMIT 1
                     ) as image,
                     (
+                        SELECT JSON_ARRAYAGG(product_image.image)
+                        FROM product_image 
+                        WHERE product_image.product_id = product.id
+                    ) as listImage,
+                    (
                         SELECT JSON_ARRAYAGG(color.color_code)
                         FROM product_color 
                         INNER JOIN color ON color.id = product_color.color_id

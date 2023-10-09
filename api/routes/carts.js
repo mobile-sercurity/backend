@@ -81,16 +81,26 @@ router.post("/add", (request, response) => {
     const query = "INSERT INTO cart(user_Id, product_Id, size, color) VALUES(?, ?, ?, ?)"
    
     const args = [userId, productId, productSize, productColor]
+    
+    const query_duplicate = "SELECT * FROM cart WHERE user_Id = ? AND product_Id = ? AND size = ? AND color=? AND is_order = 0"
+   
+    const args_duplicate = [userId, productId, productSize, productColor]
 
-    database.query(query, args, (error, result) => {
-        if (error) {
-            if (error.code === 'ER_DUP_ENTRY') {
-                response.status(500).send("Deplicate Entry")
-            } else {
-                throw error;
-            }
+    database.query(query_duplicate, args_duplicate, (error, result) => {
+        if (result !== 0 ) {
+            database.query(query, args, (error, result) => {
+                if (error) {
+                    if (error.code === 'ER_DUP_ENTRY') {
+                        response.status(500).send("Deplicate Entry")
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    response.status(200).send("Added to Cart")
+                }
+            });
         } else {
-            response.status(200).send("Added to Cart")
+            response.status(200).send("Products already in the cart")
         }
     });
 });
@@ -98,9 +108,9 @@ router.post("/add", (request, response) => {
 // Remove product from Cart
 router.delete("/remove", (request, response) => {
     const userId = request.query.userId;
-    const productId = request.query.productId;
-    const query = "DELETE FROM cart WHERE user_id = ? and id = ?"
-    const args = [userId, productId]
+    const cartId = request.query.cartId;
+    const query = "DELETE FROM cart WHERE user_id=? AND id = ?"
+    const args = [userId, cartId]
 
     database.query(query, args, (error, result) => {
         if(error) throw error
