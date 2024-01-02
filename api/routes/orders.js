@@ -12,6 +12,8 @@ const {
   getOrderById,
 } = require("../../controller/order-controller");
 
+const orderStatusCode = require("../../constant/order-const")
+
 // Order a product
 router.post("/add", (request, response) => {
   var status = request.body.status;
@@ -44,7 +46,7 @@ router.post("/add", (request, response) => {
     order_number = '88' + util.getRandomInt(100000, 999999)
     
     if(typeof status == 'undefined' && status == null){
-        status = "shipped";
+        status = orderStatusCode.PendingConfirm;
     }
 
     const query = "INSERT INTO Ordering(order_number, order_date ,status,name_on_card, card_number,expiration_date,user_id, cart_id) VALUES(?,NOW(),?,?,?,?,?,?)"

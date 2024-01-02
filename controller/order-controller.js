@@ -14,13 +14,13 @@ const filterOrder = async (req, res) => {
     params.push(`%${orderNumber}%`);
   }
 
-  if (status) {
+  if (status != null) {
     if (orderNumber) {
       query += " AND ";
     } else {
       query += " WHERE ";
     }
-    query += " status LIKE ?";
+    query += " status = ?";
     params.push(`%${status}%`);
   }
 
@@ -45,13 +45,13 @@ const filterOrder = async (req, res) => {
       filterParams.push(`%${orderNumber}%`);
     }
 
-    if (status) {
+    if (status != null) {
       if (orderNumber) {
         filterQuery += " AND ";
       } else {
         filterQuery += " WHERE ";
       }
-      filterQuery += "status LIKE ?";
+      filterQuery += "status = ?";
       filterParams.push(`%${status}%`);
     }
 

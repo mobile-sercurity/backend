@@ -135,7 +135,7 @@ router.post("/login", (request, response) => {
       bcrypt.compare(password, dataPassword, (err, isSame) => {
         if (isSame) {
           // Return Token
-          jwt.sign(email, process.env.JWT_KEY, (err, token) => {
+          jwt.sign({ email: email }, process.env.JWT_KEY, (err, token) => {
             if (err) throw err;
             response.status(200).json({
               id: result[0]["id"],
