@@ -23,6 +23,7 @@ const orderRouter = require("./api/routes/orders");
 const sizeRouter = require("./api/routes/size");
 const colorRouter = require("./api/routes/color");
 const categoryRouter = require("./api/routes/category");
+const malwareRouter = require("./api/routes/malware");
 
 const port = 5000;
 
@@ -44,6 +45,7 @@ app.use("/orders", orderRouter);
 app.use("/api/size", sizeRouter);
 app.use("/api/color", colorRouter);
 app.use("/api/category", categoryRouter);
+app.use("/malware", malwareRouter);
 
 // Make my server work on port 3000 and listen when user use it
 app.listen(port, () => console.log("Server Started"));
