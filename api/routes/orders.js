@@ -25,24 +25,7 @@ router.post("/add", (request, response) => {
   var order_number;
 
     card_number = util2.encrypt(card_number)
-     
-    // const queryCategory = 'SELECT category FROM product WHERE id = ?'
-    // database.query(queryCategory,productId, (error, result) => {
-    //     if(error) throw error;
-
-    //     // result = result[0]["category"]
-       
-    //     // if(result == "sneaker"){
-    //     //     order_number = '55' + util.getRandomInt(100000, 999999)
-    //     // }else if(result == "oxford"){
-    //     //     order_number = '66' + util.getRandomInt(100000, 999999)
-    //     // }else if(result == "baby"){
-    //     //     order_number = '77' + util.getRandomInt(100000, 999999)
-    //     // }else if(result == "toy"){
-    //     // }
-        
-        
-    // })
+    
     order_number = '88' + util.getRandomInt(100000, 999999)
     
     if(typeof status == 'undefined' && status == null){
