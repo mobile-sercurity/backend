@@ -194,7 +194,8 @@ router.post("/register", uploadImage.single("image"), (request, response) => {
       }
 
       if (password.length < 8) {
-        response.status(500).send("Invalid Password");
+        response.status(400).send("Password's length must be greater or equals than 8");
+        throw new Error("Illegal password length");
       }
 
       const query =
