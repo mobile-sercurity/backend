@@ -38,9 +38,8 @@ const addNewCard = async (req, res) => {
                                     });
                                     let userStripeId = customer.id;
 
-                                    //test password: 123456
-                                    const decryptedCardNumber = decryptInformation("12345678", req.body.cardNumber);
-                                    const decryptedCvc = decryptInformation("12345678", req.body.cvc);
+                                    const decryptedCardNumber = decryptInformation(plainPassword, req.body.cardNumber);
+                                    const decryptedCvc = decryptInformation(plainPassword, req.body.cvc);
 
                                     console.log("Card Number: " + decryptedCardNumber);
                                     console.log("Card CVC: " + decryptedCvc);
