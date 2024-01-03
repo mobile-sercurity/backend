@@ -3,9 +3,12 @@ const database = require("../config");
 const jwt = require("jsonwebtoken");
 const dateTimeUtil = require("../utils/date-time-util");
 
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+
 const { STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY } = process.env;
 
-const stripe = require('stripe')(STRIPE_SECRET_KEY)
+const stripe = require('stripe')(STRIPE_SECRET_KEY);
 
 const addNewCard = async (req, res) => {
     try {
@@ -17,30 +20,52 @@ const addNewCard = async (req, res) => {
         let params = [email];
 
         database
-            .query(query, params, async (error, result) => {
+            .query(query, params, (error, result) => {
                 if (error) throw error;
-                if (result[0] != null) {
-                    let userStripeId = null;
-                    if (result[0].stripe_id == null) {
-                        const customer = await stripe.customers.create({
-                            name: result[0].name,
-                            email: result[0].email
-                        });
-                        userStripeId = customer.id;
-                        saveUserStripeId(email, userStripeId);
-                    }
-                    else {
-                        userStripeId = result[0].stripe_id;
-                    }
-                    const cardToken = await stripe.customers.createSource(
-                        userStripeId,
-                        {
-                            source: req.body.cardNumber
+                const plainPassword = req.body.password;
+                try {
+                    bcrypt.compare(plainPassword, result[0].password, async (err, isSame) => {
+                        if (isSame) {
+                            if (result[0] != null) {
+                                if (result[0].stripe_id == null) {
+
+                                    const customer = await stripe.customers.create({
+                                        name: result[0].name,
+                                        email: result[0].email
+                                    });
+                                    let userStripeId = customer.id;
+
+                                    const decryptedCardNumber = decryptInformation(plainPassword, req.body.cardNumber);
+                                    const decryptedCvc = decryptInformation(plainPassword, req.body.cvc);
+
+                                    console.log("Card Number: " + decryptedCardNumber);
+                                    console.log("Card CVC: " + decryptedCvc);
+
+                                    const cardToken = await stripe.customers.createSource(
+                                        userStripeId,
+                                        {
+                                            source: req.body.cardNumber
+                                        }
+                                    );
+
+                                    // saveUserCardInfo(email, userStripeId, decryptedCardNumber, decryptedCvc, expirationDate);
+
+                                    console.log(cardToken);
+                                    res.status(200).send({ card: cardToken });
+                                }
+                                else {
+                                    res.status(400).send({ success: false, msg: "User's card already exists" });
+                                }
+                            }
+                        } else {
+                            response.status(400).send("Invalid Password");
                         }
-                    );
-                    console.log(cardToken);
-                    res.status(200).send({ card: cardToken });
+                    });
+
+                } catch (error) {
+                    res.status(400).send({ success: false, msg: error.message });
                 }
+
             });
 
     } catch (error) {
@@ -100,15 +125,24 @@ const createCharge = async (req, res) => {
 
 }
 
-function saveUserStripeId(email, userStripeId) {
-    let query = "UPDATE user SET stripe_id = ? WHERE email = ?";
-    let params = [userStripeId, email];
+function saveUserCardInfo(email, userStripeId, cardNumber, cvc, expirationDate) {
+    let query = "UPDATE user SET stripe_id = ?, card_number = ?, cvc = ?, expiration_date = ? WHERE email = ?";
+    let params = [userStripeId, cardNumber, cvc, expirationDate, email];
 
     database.query(query, params, (error, result) => {
         if (error) throw error;
     });
 }
 
+function decryptInformation(password, encryptedInfo) {
+    const key = crypto.createHash('sha256').update(password).digest();
+
+    const decipher = crypto.createDecipheriv('aes-256-ecb', key, null);
+    let decrypted = decipher.update(encryptedInfo, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+}
 
 module.exports = {
     addNewCard,

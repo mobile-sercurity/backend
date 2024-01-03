@@ -3,6 +3,8 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 require("dotenv").config();
 
+const authorizationFilter = require("./middleware/check_auth");
+
 const app = express();
 
 // User can read pictures from it
@@ -32,6 +34,7 @@ const port = 5000;
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(cors());
+app.use(authorizationFilter);
 
 // Use methods from my file
 app.use("/users", userRouter);

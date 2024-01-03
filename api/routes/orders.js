@@ -21,7 +21,7 @@ router.post("/add", (request, response) => {
   var card_number = request.body.card_number;
   const expiration_date = request.body.expiration_date;
   const userId = request.body.userId;
-  const productId = request.body.productId;
+  const cartId = request.body.productId;
   var order_number;
 
     card_number = util2.encrypt(card_number)
@@ -33,7 +33,7 @@ router.post("/add", (request, response) => {
     }
 
     const query = "INSERT INTO Ordering(order_number, order_date ,status,name_on_card, card_number,expiration_date,user_id, cart_id) VALUES(?,NOW(),?,?,?,?,?,?)"
-    const args = [order_number,status, name_on_card, card_number, expiration_date, userId, productId]
+    const args = [order_number,status, name_on_card, card_number, expiration_date, userId, cartId]
 
     database.query(query, args, (error, result) => {
         if (error) {
