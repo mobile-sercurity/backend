@@ -6,6 +6,9 @@ const dateTimeUtil = require("../utils/date-time-util");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
+const orderStatusCode = require("../constant/order-const");
+const util = require("../utils/mail");
+
 const { STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY } = process.env;
 
 const stripe = require('stripe')(STRIPE_SECRET_KEY);
@@ -35,8 +38,9 @@ const addNewCard = async (req, res) => {
                                     });
                                     let userStripeId = customer.id;
 
-                                    const decryptedCardNumber = decryptInformation(plainPassword, req.body.cardNumber);
-                                    const decryptedCvc = decryptInformation(plainPassword, req.body.cvc);
+                                    //test password: 123456
+                                    const decryptedCardNumber = decryptInformation("12345678", req.body.cardNumber);
+                                    const decryptedCvc = decryptInformation("12345678", req.body.cvc);
 
                                     console.log("Card Number: " + decryptedCardNumber);
                                     console.log("Card CVC: " + decryptedCvc);
@@ -47,8 +51,9 @@ const addNewCard = async (req, res) => {
                                             source: "tok_visa"
                                         }
                                     );
-
-                                    // saveUserCardInfo(email, userStripeId, decryptedCardNumber, decryptedCvc, expirationDate);
+                                    
+                                    const expirationDate = req.body.month + "/" + req.body.year;
+                                    saveUserCardInfo(email, userStripeId, req.body.cardNumber, req.body.cvc, expirationDate, req.body.nameOnCard);
 
                                     console.log(cardToken);
                                     res.status(200).send({ card: cardToken });
@@ -106,6 +111,11 @@ const createCharge = async (req, res) => {
                                 payment_method: 'pm_card_visa',
                             });
 
+                            const cartId = req.body.cartId;
+
+                            savePaidByVisaOrder(result[0].id, cartId);
+                            saveCartIsOrderedStatus(cartId);
+
                             res.status(200).send(
                                 {
                                     success: true,
@@ -125,12 +135,37 @@ const createCharge = async (req, res) => {
 
 }
 
-function saveUserCardInfo(email, userStripeId, cardNumber, cvc, expirationDate) {
-    let query = "UPDATE user SET stripe_id = ?, card_number = ?, cvc = ?, expiration_date = ? WHERE email = ?";
-    let params = [userStripeId, cardNumber, cvc, expirationDate, email];
+async function saveUserCardInfo(email, userStripeId, cardNumber, cvc, expirationDate, nameOnCard) {
+    let query = "UPDATE user SET stripe_id = ?, card_number = ?, cvc = ?, expiration_date = ?, name_on_card = ? WHERE email = ?";
+    let params = [userStripeId, cardNumber, cvc, expirationDate, nameOnCard, email];
 
     database.query(query, params, (error, result) => {
         if (error) throw error;
+    });
+}
+
+async function savePaidByVisaOrder(userId, cartId) {
+    const order_number = '88' + util.getRandomInt(100000, 999999);
+    const status = orderStatusCode.PaidByVisa;
+
+    const query = "INSERT INTO ordering(order_number, order_date , status, user_id, cart_id) VALUES(?, NOW(), ?, ?, ?)";
+    const args = [order_number, status, userId, cartId];
+
+    database.query(query, args, (error, result) => {
+        if (error) {
+            throw error;
+        }
+    });
+}
+
+async function saveCartIsOrderedStatus(cartId) {
+    const query = "UPDATE cart SET is_order = 1 WHERE id = ?";
+    const args = [cartId];
+
+    database.query(query, args, (error, result) => {
+        if (error) {
+            throw error;
+        }
     });
 }
 

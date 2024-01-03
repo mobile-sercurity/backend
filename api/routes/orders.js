@@ -12,7 +12,7 @@ const {
   getOrderById,
 } = require("../../controller/order-controller");
 
-const orderStatusCode = require("../../constant/order-const")
+const orderStatusCode = require("../../constant/order-const");
 
 // Order a product
 router.post("/add", (request, response) => {
