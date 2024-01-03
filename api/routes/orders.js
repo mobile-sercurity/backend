@@ -111,10 +111,13 @@ router.get("/get", (request, response) => {
                           Product.price,
                           Product.id,
                           User.name,
+                          Ordering.status as status,
+                          Shipping.address as address,
+                          Shipping.phone as phone,
                           Shipping.address
                           FROM Ordering 
                           INNER JOIN cart ON cart.id = Ordering.cart_id 
-                          JOIN Product 
+                          INNER JOIN Product ON Product.id = cart.product_id
                           JOIN User 
                           INNER JOIN Shipping ON Ordering.cart_id  = Shipping.cart_id
                           WHERE Ordering.user_id = ? 

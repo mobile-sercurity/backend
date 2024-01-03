@@ -20,30 +20,30 @@ router.post("/add", (request, response) => {
     const args = [address, city, country, zip, phone, userId, cartId]
 
     database.query(query, args, (error, result) => {
-        if (error.code === 'ER_DUP_ENTRY') {
-            response.status(500).send("Deplicate Entry")
+        if (error) {
+            if (error.code === 'ER_DUP_ENTRY') {
+                response.status(500).send("Deplicate Entry")
+            } else {
+                throw error;
+            }
         } else {
-            throw error;
+            // const query2 = "UPDATE cart SET is_order = 1 WHERE id = ?"
+        
+            // const args2 = [productId]
+        
+            // database.query(query2, args2, (error, result) => {
+            //     if (error) {
+            //         if (error.code === 'ER_DUP_ENTRY') {
+            //             response.status(500).send("Deplicate Entry")
+            //         } else {
+            //             throw error;
+            //         }
+            //     } else {
+            //         response.status(200).send("Your address is added")
+            //     }
+            // });
+            response.status(200).send("Your address is added")
         }
-        // if (error) {
-        // } else {
-        //     const query2 = "UPDATE cart SET is_order = 1 WHERE id = ?"
-        
-        //     const args2 = [productId]
-        
-        //     database.query(query2, args2, (error, result) => {
-        //         if (error) {
-        //             if (error.code === 'ER_DUP_ENTRY') {
-        //                 response.status(500).send("Deplicate Entry")
-        //             } else {
-        //                 throw error;
-        //             }
-        //         } else {
-        //             response.status(200).send("Your address is added")
-        //         }
-        //     });
-        //     // response.status(200).send("Your address is added")
-        // }
     });
     
 });

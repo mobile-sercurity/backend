@@ -125,7 +125,7 @@ router.post("/login", (request, response) => {
   const email = request.body.email;
   const password = request.body.password;
   const query =
-    "SELECT id, password, name, email, if(isAdmin=1,  'true', 'false') as isAdmin FROM user WHERE email = ?";
+    "SELECT id, password, name, email, if(isAdmin=1,  'true', 'false') as isAdmin, SUBSTRING_INDEX(expiration_date, '/', 1) as card_month, SUBSTRING_INDEX(expiration_date, '/', -1) as card_year, name_on_card, card_number, cvc FROM user WHERE email = ?";
   const args = [email];
   database.query(query, args, (error, result) => {
     if (error) throw error;
@@ -146,6 +146,11 @@ router.post("/login", (request, response) => {
               message: "Successful Login",
               password: password,
               token: token,
+              card_month: result[0]["card_month"],
+              card_year: result[0]["card_year"],
+              name_on_card: result[0]["name_on_card"],
+              card_number: result[0]["card_number"],
+              cvc: result[0]["cvc"],
             });
           });
         } else {
@@ -344,6 +349,7 @@ router.get("/getImage", (request, response) => {
   const query = "SELECT image FROM user WHERE id = ?";
 
   database.query(query, args, (error, result) => {
+    // console.log();
     if (error) throw error;
     response.status(200).json({
       error: false,

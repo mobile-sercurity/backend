@@ -30,44 +30,45 @@ const addNewCard = async (req, res) => {
                     bcrypt.compare(plainPassword, result[0].password, async (err, isSame) => {
                         if (isSame) {
                             if (result[0] != null) {
-                                if (result[0].stripe_id == null) {
+                                const customer = await stripe.customers.create({
+                                    name: result[0].name,
+                                    email: result[0].email
+                                });
+                                let userStripeId = customer.id;
 
-                                    const customer = await stripe.customers.create({
-                                        name: result[0].name,
-                                        email: result[0].email
-                                    });
-                                    let userStripeId = customer.id;
+                                const decryptedCardNumber = decryptInformation(plainPassword, req.body.cardNumber);
+                                const decryptedCvc = decryptInformation(plainPassword, req.body.cvc);
 
-                                    const decryptedCardNumber = decryptInformation(plainPassword, req.body.cardNumber);
-                                    const decryptedCvc = decryptInformation(plainPassword, req.body.cvc);
+                                console.log("Card Number: " + decryptedCardNumber);
+                                console.log("Card CVC: " + decryptedCvc);
 
-                                    console.log("Card Number: " + decryptedCardNumber);
-                                    console.log("Card CVC: " + decryptedCvc);
+                                const cardToken = await stripe.customers.createSource(
+                                    userStripeId,
+                                    {
+                                        source: "tok_visa"
+                                    }
+                                );
+                                
+                                const expirationDate = req.body.month + "/" + req.body.year;
+                                saveUserCardInfo(email, userStripeId, req.body.cardNumber, req.body.cvc, expirationDate, req.body.nameOnCard);
 
-                                    const cardToken = await stripe.customers.createSource(
-                                        userStripeId,
-                                        {
-                                            source: "tok_visa"
-                                        }
-                                    );
-                                    
-                                    const expirationDate = req.body.month + "/" + req.body.year;
-                                    saveUserCardInfo(email, userStripeId, req.body.cardNumber, req.body.cvc, expirationDate, req.body.nameOnCard);
+                                console.log(cardToken);
+                                res.status(200).send("Add Card Successful");
+                                // if (result[0].stripe_id == null) {
 
-                                    console.log(cardToken);
-                                    res.status(200).send({ card: cardToken });
-                                }
-                                else {
-                                    res.status(400).send({ success: false, msg: "User's card already exists" });
-                                }
+                                // }
+                                // else {
+                                //     res.status(200).send("User's card already exists");
+                                // }
                             }
                         } else {
-                            res.status(400).send("Invalid Password");
+                            console.log("Invalid Password");
+                            res.status(200).send("Invalid Password");
                         }
                     });
 
                 } catch (error) {
-                    res.status(400).send({ success: false, msg: error.message });
+                    res.status(400).send(error.message);
                 }
 
             });
@@ -98,38 +99,41 @@ const createCharge = async (req, res) => {
             .query(query, params, async (error, result) => {
                 try {
                     if (error) throw error;
-                    if (result[0] != null) {
-                        if (result[0].stripe_id == null) {
-                            throw new Error("You haven't registered a card to payment")
+                    const plainPassword = req.body.password;
+                    bcrypt.compare(plainPassword, result[0].password, async (err, isSame) => {
+                        if (isSame) {
+                            if (result[0] != null) {
+                                if (result[0].stripe_id == null) {
+                                    throw new Error("You haven't registered a card to payment")
+                                }
+                                else {
+                                    const paymentIntent = await stripe.paymentIntents.create({
+                                        customer: result[0].stripe_id,
+                                        amount: req.body.amount,
+                                        currency: 'VND',
+                                        payment_method: 'pm_card_visa',
+                                    });
+        
+                                    const cartId = req.body.cartId;
+        
+                                    savePaidByVisaOrder(result[0].id, cartId);
+                                    saveCartIsOrderedStatus(cartId);
+        
+                                    res.status(200).send("Payment Successful");
+                                }
+                            }
+                        } else {
+                            console.log("Invalid Password");
+                            res.status(200).send("Invalid Password");
                         }
-                        else {
-                            const paymentIntent = await stripe.paymentIntents.create({
-                                customer: result[0].stripe_id,
-                                amount: req.body.amount,
-                                currency: 'VND',
-                                payment_method: 'pm_card_visa',
-                            });
-
-                            const cartId = req.body.cartId;
-
-                            savePaidByVisaOrder(result[0].id, cartId);
-                            saveCartIsOrderedStatus(cartId);
-
-                            res.status(200).send(
-                                {
-                                    success: true,
-                                    paymentId: paymentIntent.id,
-                                    paymentTime: dateTimeUtil.formatDateTime(new Date())
-                                });
-                        }
-                    }
+                    })
                 } catch (error) {
-                    res.status(400).send({ success: false, msg: error.message });
+                    res.status(400).send(error.message);
                 }
             });
 
     } catch (error) {
-        res.status(400).send({ success: false, msg: error.message });
+        res.status(400).send(error.message);
     }
 
 }
