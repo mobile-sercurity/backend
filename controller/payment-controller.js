@@ -44,7 +44,7 @@ const addNewCard = async (req, res) => {
                                     const cardToken = await stripe.customers.createSource(
                                         userStripeId,
                                         {
-                                            source: req.body.cardNumber
+                                            source: "tok_visa"
                                         }
                                     );
 
@@ -58,7 +58,7 @@ const addNewCard = async (req, res) => {
                                 }
                             }
                         } else {
-                            response.status(400).send("Invalid Password");
+                            res.status(400).send("Invalid Password");
                         }
                     });
 
